@@ -1,10 +1,8 @@
 "use client";
 import React, { useState } from "react";
-import { cn } from "@/utils/cn";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { BackgroundBeams } from "@/components/ui/background-beams";
-import { ModuleEnseignement, UniteEnseignement } from "@/constants/types";
 import {
   moduleCoefs,
   moduleNames,
@@ -13,46 +11,52 @@ import {
   ueCoefs,
   ueNames,
 } from "@/constants/constants";
+import ModuleEnseignement from "@/entities/ModuleEnseignement";
+import UniteEnseignement from "@/entities/UniteEnseignement";
+import Option from "@/entities/Option";
+import BottomGradient from "@/components/ui/BottomGradient";
+import LabelInputContainer from "@/components/ui/LabelInputContainer";
 
 const Page = () => {
-  const [modulesData, setModulesData] = useState<UniteEnseignement[]>(
-    ueNames.map((ueName, index) => {
-      const modules: ModuleEnseignement[] = moduleToUeIndex.reduce(
-        (acc: ModuleEnseignement[], ueIndex: number, moduleIndex: number) => {
-          if (ueIndex === index) {
-            const moduleName = moduleNames[moduleIndex];
-            const coef = moduleCoefs[moduleIndex];
-            const moyModule = 0;
-            acc.push({ moduleName, coef, moyModule } as ModuleEnseignement);
-          }
-          return acc;
-        },
-        [] as ModuleEnseignement[]
-      );
-      const uniteEnseignement = ueName;
-      const nbECTS = ueCoefs[index];
-      const moyenneUE = 0;
-      return {
-        uniteEnseignement,
-        nbECTS,
-        moyenneUE,
-        modules,
-      };
-    })
-  );
+  const [modulesData, setModulesData] = useState<UniteEnseignement[]>(() => {
+    const initialModulesData = ueNames.map(
+      (ueName, index) =>
+        new UniteEnseignement(
+          ueName,
+          ueCoefs[index],
+          0,
+          moduleToUeIndex.reduce((accumulator, ueIndex, neededIndex) => {
+            if (ueIndex === index) {
+              accumulator.push(
+                new ModuleEnseignement(
+                  moduleNames[neededIndex],
+                  moduleCoefs[neededIndex],
+                  0
+                )
+              );
+            }
+            return accumulator;
+          }, [] as ModuleEnseignement[])
+        )
+    );
 
-  const [optionsValues, setOptionsValues] = useState<Array<number>>(
-    new Array(OptionsArray.length).fill(0)
+    return initialModulesData;
+  });
+
+  const [optionsValues, setOptionsValues] = useState<Option[]>(() =>
+    OptionsArray.map((value) => new Option(value))
   );
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    calculateOptions();
     console.log("Form submitted");
   };
 
   const calculateModuleScore = (
     uniteEnseignement: string,
-    moduleName: string
+    moduleName: string,
+    moyModule: number
   ) => {
     const ue = modulesData.find(
       (ue: UniteEnseignement) => ue.uniteEnseignement === uniteEnseignement
@@ -63,7 +67,7 @@ const Page = () => {
     );
 
     if (moduleEnseignement) {
-      const score = moduleEnseignement.moyModule * moduleEnseignement.coef;
+      const score = moyModule * moduleEnseignement.coef;
       const ueCoef = ue?.nbECTS || 1;
       return score / ueCoef;
     }
@@ -74,35 +78,12 @@ const Page = () => {
   const calculateMoyenneGenerale = () => {
     let totalScore = 0;
     let totalCoef = 0;
-
-    modulesData.forEach((ue: UniteEnseignement) => {
+    modulesData.map((ue: UniteEnseignement) => {
       totalScore += ue.moyenneUE * ue.nbECTS;
       totalCoef += ue.nbECTS;
     });
 
     return totalCoef ? totalScore / totalCoef : 0;
-  };
-
-  const getMoyenneUE = (ueName: string) => {
-    const ue = modulesData.find(
-      (ue: UniteEnseignement) => ue.uniteEnseignement === ueName
-    );
-
-    return ue ? ue.moyenneUE : 0;
-  };
-
-  const getMoyModule = (moduleName: string) => {
-    let moyModule = 0;
-
-    modulesData.forEach((ue: UniteEnseignement) => {
-      ue.modules.forEach((module: ModuleEnseignement) => {
-        if (module.moduleName === moduleName) {
-          moyModule = module.moyModule;
-        }
-      });
-    });
-
-    return moyModule;
   };
 
   const calculateOptions = () => {
@@ -113,123 +94,22 @@ const Page = () => {
       ue.modules.forEach((module: ModuleEnseignement) => {
         const score = calculateModuleScore(
           ue.uniteEnseignement,
-          module.moduleName
+          module.moduleName,
+          module.moyModule
         );
-        module.moyModule = score;
+        // module.moyModule = score;
         totalScore += score * module.coef;
         totalCoef += module.coef;
       });
 
       ue.moyenneUE = totalCoef ? totalScore / totalCoef : 0;
     });
-
     const moyenneGenerale = calculateMoyenneGenerale();
-
-    const troncCommunMoy =
-      0.4 * moyenneGenerale +
-      0.1 * getMoyenneUE("Communication, Culture et Citoyenneté A3") +
-      0.1 * getMoyenneUE("Management de l'entreprise");
-
-    const simOption =
-      troncCommunMoy +
-      0.15 * getMoyenneUE("Projet Intégré : Développement Web Java") +
-      0.1 * getMoyModule("Conception par Objet et Programmation Java") +
-      0.15 * getMoyModule("Programmation des terminaux mobiles");
-
-    const arcticOption =
-      troncCommunMoy +
-      0.2 * getMoyenneUE("Administration des SE") +
-      0.2 * getMoyenneUE("Réseau IP et routage");
-
-    const gamixOption =
-      troncCommunMoy +
-      0.1 *
-        ((getMoyModule("Techniques d'estimation pour l'ingénieur") +
-          getMoyModule("Analyse Numérique") +
-          getMoyModule("Calcul scientifique")) /
-          3) +
-      0.1 * getMoyModule("Conception par Objet et Programmation Java") +
-      0.1 * getMoyenneUE("Projet Intégré : Développement Web Java") +
-      0.1 * getMoyModule("Programmation des terminaux mobiles");
-
-    const dsOption =
-      troncCommunMoy +
-      0.1 * getMoyModule("Sys. De Gestion de Bases de Données") +
-      0.1 * getMoyenneUE("Projet Intégré : Développement Web Java") +
-      0.2 *
-        ((getMoyModule("Techniques d'estimation pour l'ingénieur") +
-          getMoyModule("Analyse Numérique") +
-          getMoyModule("Calcul scientifique")) /
-          3);
-
-    const erpBiOption =
-      troncCommunMoy +
-      0.2 * getMoyModule("Sys. De Gestion de Bases de Données") +
-      0.05 * getMoyenneUE("Projet Intégré : Développement Web Java") +
-      (0.15 *
-        (getMoyModule("Calcul scientifique") +
-          getMoyModule("Techniques d'estimation pour l'ingénieur"))) /
-        2;
-
-    const infiniOption =
-      troncCommunMoy +
-      0.1 * getMoyModule("Sys. De Gestion de Bases de Données") +
-      0.1 * getMoyenneUE("Projet Intégré : Développement Web Java") +
-      0.1 * getMoyenneUE("Méthodes numériques pour l'ingénieur") +
-      0.1 * getMoyenneUE("Techniques d'estimation pour l'ingénieur");
-
-    const nidsOption =
-      troncCommunMoy +
-      0.2 * getMoyenneUE("Administration des SE") +
-      0.2 * getMoyenneUE("Réseau IP et routage");
-
-    const twinOption =
-      troncCommunMoy +
-      0.15 * getMoyenneUE("Projet Intégré : Développement Web Java") +
-      0.15 * getMoyModule("Technologies Web 2.0") +
-      0.1 * getMoyModule("Langage de modélisation (UML)");
-
-    const saeOption =
-      troncCommunMoy +
-      0.1 * getMoyModule("Langage de modélisation (UML)") +
-      0.1 * getMoyenneUE("Génie logiciel & atelier GL") +
-      0.1 * getMoyModule("Technologies Web 2.0") +
-      0.1 * getMoyenneUE("Projet Intégré : Développement Web Java");
-
-    const sleamOption =
-      troncCommunMoy +
-      0.1 * getMoyenneUE("Administration des SE") +
-      0.1 * getMoyenneUE("Modélisation et Programmation Objet") +
-      0.1 * getMoyenneUE("Developpement web & mobile") +
-      0.1 * getMoyenneUE("Méthodes numériques pour l'ingénieur");
-
-    const newOptionsValues = optionsValues.map((value, index) => {
-      switch (OptionsArray[index]) {
-        case "SIM":
-          return simOption;
-        case "ARCTIC":
-          return arcticOption;
-        case "GAMIX":
-          return gamixOption;
-        case "DS":
-          return dsOption;
-        case "ERP_BI":
-          return erpBiOption;
-        case "INFINI":
-          return infiniOption;
-        case "NIDS":
-          return nidsOption;
-        case "TWIN":
-          return twinOption;
-        case "SAE":
-          return saeOption;
-        case "SLEAM":
-          return sleamOption;
-        default:
-          return value;
-      }
-    });
-    setOptionsValues(newOptionsValues);
+    setOptionsValues(
+      optionsValues.map((option) =>
+        new Option(option.name).calculateScore(moyenneGenerale, modulesData)
+      )
+    );
   };
 
   return (
@@ -243,7 +123,7 @@ const Page = () => {
           yet
         </p>
 
-        <form className="my-8" onSubmit={handleSubmit}>
+        <form className="my-8" method="post" onSubmit={handleSubmit}>
           <div className="grid grid-cols-6 gap-4 mb-4">
             {modulesData.map((ue, ueIndex) =>
               ue.modules.map((module, moduleIndex) => (
@@ -257,30 +137,14 @@ const Page = () => {
                     className="subject"
                     placeholder={`${module.moduleName} Note`}
                     type="number"
-                    value={module.moyModule || 0}
+                    value={module.moyModule}
                     onChange={(e) => {
-                      const newModulesData = modulesData.map((ueData, i) => {
-                        if (i === ueIndex) {
-                          const newModules = ueData.modules.map(
-                            (moduleData, j) => {
-                              if (j === moduleIndex) {
-                                return {
-                                  ...moduleData,
-                                  moyModule: parseFloat(e.target.value),
-                                };
-                              }
-                              return moduleData;
-                            }
-                          );
-                          return {
-                            ...ueData,
-                            modules: newModules,
-                          };
-                        }
-                        return ueData;
-                      });
-                      setModulesData(newModulesData);
-                      calculateOptions();
+                      const value = parseFloat(e.target.value);
+                      const updatedModulesData = [...modulesData];
+                      updatedModulesData[ueIndex].modules[
+                        moduleIndex
+                      ].moyModule = value;
+                      setModulesData(updatedModulesData);
                     }}
                   />
                 </LabelInputContainer>
@@ -291,7 +155,6 @@ const Page = () => {
           <button
             className="bg-gradient-to-br relative group/btn from-black dark:from-zinc-900 dark:to-zinc-900 to-neutral-600 block dark:bg-zinc-800 w-full text-white rounded-md h-10 font-medium shadow-[0px_1px_0px_0px_#ffffff40_inset,0px_-1px_0px_0px_#ffffff40_inset] dark:shadow-[0px_1px_0px_0px_var(--zinc-800)_inset,0px_-1px_0px_0px_var(--zinc-800)_inset]"
             type="submit"
-            onClick={calculateOptions}
           >
             Calculate &rarr;
             <BottomGradient />
@@ -306,7 +169,7 @@ const Page = () => {
                   id={`input${index + 1}`}
                   placeholder={`${value} Note`}
                   type="number"
-                  value={optionsValues[index]}
+                  value={optionsValues[index].score}
                   disabled
                 />
               </LabelInputContainer>
@@ -316,29 +179,6 @@ const Page = () => {
       </div>
       <BackgroundBeams className="z-[-1]" />
     </>
-  );
-};
-
-const BottomGradient = () => {
-  return (
-    <>
-      <span className="group-hover/btn:opacity-100 block transition duration-500 opacity-0 absolute h-px w-full -bottom-px inset-x-0 bg-gradient-to-r from-transparent via-cyan-500 to-transparent" />
-      <span className="group-hover/btn:opacity-100 blur-sm block transition duration-500 opacity-0 absolute h-px w-1/2 mx-auto -bottom-px inset-x-10 bg-gradient-to-r from-transparent via-indigo-500 to-transparent" />
-    </>
-  );
-};
-
-const LabelInputContainer = ({
-  children,
-  className,
-}: {
-  children: React.ReactNode;
-  className?: string;
-}) => {
-  return (
-    <div className={cn("flex flex-col space-y-2 w-full", className)}>
-      {children}
-    </div>
   );
 };
 
